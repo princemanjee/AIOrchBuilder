@@ -1,0 +1,3 @@
+-- Seed Data
+-- INSERT INTO public.profile_views (...) VALUES (...);
+-- INSERT INTO public.contact_messages (...) VALUES (...);

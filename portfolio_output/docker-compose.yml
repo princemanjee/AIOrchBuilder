@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  database:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=p_r_prince_rehman_manjee,_ee,_mis_portfolio_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5432:5432"
+  
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+  
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=p_r_prince_rehman_manjee,_ee,_mis_portfolio
+      - DATABASE_URL=postgresql://admin:secret@database:5432/p_r_prince_rehman_manjee,_ee,_mis_portfolio_db
+    depends_on:
+      - database
