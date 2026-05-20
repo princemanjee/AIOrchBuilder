@@ -74,4 +74,30 @@ EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 """
 
+    async def generate_router_llm(self, api_layer, data_layer, project_name: str, provider, models) -> str:
+        """LLM-driven FastAPI router generation with real Supabase CRUD. Falls back
+        to the deterministic generate_router at the call site on failure."""
+        from agent_specs import get_spec
+        from llm_client import agent_generate
+
+        spec = get_spec("AGENT_API")
+        context = {
+            "project_name": project_name,
+            "api_layer": api_layer.dict() if hasattr(api_layer, "dict") else api_layer,
+            "data_layer": data_layer.dict() if hasattr(data_layer, "dict") else data_layer,
+        }
+        instruction = (
+            "Generate a FastAPI APIRouter module implementing every endpoint above "
+            "with REAL Supabase CRUD against the given schema. Honor the HARD RULES "
+            "in your system prompt (auth dependency on every endpoint, Pydantic "
+            "validation, no stub returns)."
+        )
+        return await agent_generate(
+            provider,
+            models=models,
+            system_prompt=spec["system_prompt"],
+            context=context,
+            instruction=instruction,
+        )
+
 agent_api = APIEngine()

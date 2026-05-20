@@ -129,15 +129,29 @@ class TaskOrchestrator:
                 task.output_artifact = sql
             
             if task.agent_name == "AGENT_API" and self.current_blueprint:
+                models = llm_router.resolve_gateway_models("04_BUILD", "AGENT_API", config)
+                try:
+                    router_code = await agent_api.generate_router_llm(
+                        self.current_blueprint.api_layer,
+                        self.current_blueprint.data_layer,
+                        self.current_blueprint.project_name,
+                        provider,
+                        models,
+                    )
+                    print(f"📁 LLM-generated API router for {task.agent_name}")
+                except Exception as e:
+                    print(f"⚠️ LLM API generation failed ({e}); using deterministic fallback.")
+                    router_code = agent_api.generate_router(
+                        self.current_blueprint.project_name, self.current_blueprint.data_layer.tables
+                    )
                 task.artifacts = {
                     "backend/requirements.txt": agent_api.generate_requirements(),
                     "backend/Dockerfile": agent_api.generate_dockerfile(),
                     "backend/models.py": agent_api.generate_models(self.current_blueprint.data_layer.tables),
-                    "backend/routers/main.py": agent_api.generate_router(self.current_blueprint.project_name, self.current_blueprint.data_layer.tables),
-                    "backend/main.py": agent_api.generate_main(self.current_blueprint.project_name)
+                    "backend/routers/main.py": router_code,
+                    "backend/main.py": agent_api.generate_main(self.current_blueprint.project_name),
                 }
                 task.output_artifact = task.artifacts["backend/main.py"]
-                print(f"📁 Generated Modular API code for {task.agent_name}")
 
             if task.agent_name == "AGENT_UI" and self.current_blueprint:
                 ui_artifacts = {
