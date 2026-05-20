@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Any, Optional
 from models import ArchitectureBlueprint, AgentTask, TaskList
 from data_engine import agent_data
 from api_engine import agent_api
@@ -12,7 +12,6 @@ from auth_engine import agent_auth
 from test_engine import agent_test
 import uuid
 import asyncio
-import random
 
 class TaskOrchestrator:
     """
@@ -104,10 +103,7 @@ class TaskOrchestrator:
             
             # Get the actual provider instance (Verify connectivity)
             provider = provider_factory.get_provider(engine, config)
-            try:
-                print(f"🤖 Agent {task.agent_name} executing on {engine} ({model})...")
-            except Exception as e:  # noqa: BLE001
-                print(f"⚠️ Provider selection failed for {engine}: {e}")
+            print(f"🤖 Agent {task.agent_name} executing on {engine} ({model})...")
             
             task.status = "in_progress"
             await callback(task)
