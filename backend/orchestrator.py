@@ -190,17 +190,26 @@ class TaskOrchestrator:
                 print(f"📁 Generated Logic & Success Artifacts for {task.agent_name}")
 
             if task.agent_name == "AGENT_AUTH" and self.current_blueprint:
+                models = llm_router.resolve_gateway_models("04_BUILD", "AGENT_AUTH", config)
+                try:
+                    middleware_code = await agent_auth.generate_auth_middleware_llm(
+                        self.current_blueprint.data_layer,
+                        self.current_blueprint.project_name,
+                        provider,
+                        models,
+                    )
+                    print(f"📁 LLM-generated auth middleware for {task.agent_name}")
+                except Exception as e:
+                    print(f"⚠️ LLM auth generation failed ({e}); using deterministic fallback.")
+                    middleware_code = agent_auth.generate_auth_middleware()
                 auth_artifacts = {
-                    "backend/middleware/auth.py": agent_auth.generate_auth_middleware(),
-                    "frontend/src/components/Login.jsx": agent_auth.generate_login_ui(self.current_blueprint.ui_layer.style_guide.get("primary", "#00f3ff"))
+                    "backend/middleware/auth.py": middleware_code,
+                    "frontend/src/components/Login.jsx": agent_auth.generate_login_ui(self.current_blueprint.ui_layer.style_guide.get("primary", "#00f3ff")),
                 }
-                # Create policies for all tables
                 for table in self.current_blueprint.data_layer.tables:
                     auth_artifacts[f"supabase/policies/{table['name']}.sql"] = agent_auth.generate_rls_sql(table['name'])
-                
                 task.artifacts = auth_artifacts
                 task.output_artifact = auth_artifacts["frontend/src/components/Login.jsx"]
-                print(f"📁 Generated Auth & Security Artifacts for {task.agent_name}")
 
             if task.agent_name == "AGENT_TEST" and self.current_blueprint:
                 test_artifacts = {

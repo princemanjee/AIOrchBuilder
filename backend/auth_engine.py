@@ -42,6 +42,30 @@ export const Login = () => {{
 }};
 """
 
+    async def generate_auth_middleware_llm(self, data_layer, project_name: str, provider, models) -> str:
+        """LLM-driven Supabase JWT auth middleware. Falls back to the deterministic
+        generate_auth_middleware at the call site on failure."""
+        from agent_specs import get_spec
+        from llm_client import agent_generate
+
+        spec = get_spec("AGENT_AUTH")
+        context = {
+            "project_name": project_name,
+            "data_layer": data_layer.dict() if hasattr(data_layer, "dict") else data_layer,
+        }
+        instruction = (
+            "Generate FastAPI middleware that performs REAL Supabase JWT verification "
+            "(verify the bearer token against Supabase; no hardcoded user ids). Honor "
+            "the HARD RULES in your system prompt."
+        )
+        return await agent_generate(
+            provider,
+            models=models,
+            system_prompt=spec["system_prompt"],
+            context=context,
+            instruction=instruction,
+        )
+
     def generate_rls_sql(self, table_name: str) -> str:
         return f"""-- File: auth/policies.sql
 ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;
