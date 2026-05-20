@@ -212,16 +212,29 @@ class TaskOrchestrator:
                 task.output_artifact = auth_artifacts["frontend/src/components/Login.jsx"]
 
             if task.agent_name == "AGENT_TEST" and self.current_blueprint:
+                models = llm_router.resolve_gateway_models("05_VALIDATION", "AGENT_TEST", config)
                 test_artifacts = {
                     "tests/e2e/basic.spec.js": agent_test.generate_e2e_tests(self.current_blueprint.project_name),
-                    ".github/workflows/e2e.yml": agent_test.generate_github_workflow()
+                    ".github/workflows/e2e.yml": agent_test.generate_github_workflow(),
                 }
                 for table in self.current_blueprint.data_layer.tables:
-                    test_artifacts[f"backend/tests/test_{table['name']}.py"] = agent_test.generate_unit_tests(table['name'])
-                
+                    name = table["name"]
+                    try:
+                        unit_code = await agent_test.generate_unit_tests_llm(
+                            name,
+                            self.current_blueprint.api_layer,
+                            self.current_blueprint.data_layer,
+                            self.current_blueprint.project_name,
+                            provider,
+                            models,
+                        )
+                    except Exception as e:
+                        print(f"⚠️ LLM unit-test generation failed for {name} ({e}); deterministic fallback.")
+                        unit_code = agent_test.generate_unit_tests(name)
+                    test_artifacts[f"backend/tests/test_{name}.py"] = unit_code
+                print(f"📁 Generated Testing Artifacts for {task.agent_name}")
                 task.artifacts = test_artifacts
                 task.output_artifact = list(test_artifacts.values())[0]
-                print(f"📁 Generated Testing Artifacts for {task.agent_name}")
             
             task.status = "complete"
             await callback(task)

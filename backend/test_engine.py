@@ -71,4 +71,31 @@ jobs:
         retention-days: 30
 """
 
+    async def generate_unit_tests_llm(self, table_name: str, api_layer, data_layer, project_name: str, provider, models) -> str:
+        """LLM-driven pytest unit tests for one table's endpoints (incl. the
+        401-without-auth case). Falls back to deterministic generate_unit_tests
+        at the call site on failure."""
+        from agent_specs import get_spec
+        from llm_client import agent_generate
+
+        spec = get_spec("AGENT_TEST")
+        context = {
+            "project_name": project_name,
+            "table_name": table_name,
+            "api_layer": api_layer.dict() if hasattr(api_layer, "dict") else api_layer,
+            "data_layer": data_layer.dict() if hasattr(data_layer, "dict") else data_layer,
+        }
+        instruction = (
+            f"Generate pytest unit tests for the '{table_name}' endpoints, including "
+            "the 401-without-auth case. Honor the HARD RULES in your system prompt."
+        )
+        return await agent_generate(
+            provider,
+            models=models,
+            system_prompt=spec["system_prompt"],
+            context=context,
+            instruction=instruction,
+        )
+
+
 agent_test = TestEngine()
