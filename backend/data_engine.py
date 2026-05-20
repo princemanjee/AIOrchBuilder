@@ -28,15 +28,20 @@ class DataEngine:
             # Map description-based columns to SQL
             # Simple heuristic mapping for POC
             for col in columns:
-                if "name" in col.lower() or "title" in col.lower():
-                    sql_output += f"    {col.split(' ')[0]} TEXT,\n"
-                elif "id" in col.lower() and "uuid" in col.lower() and "primary" not in col.lower():
-                    sql_output += f"    {col.split(' ')[0]} UUID,\n"
-                elif "status" in col.lower():
-                    sql_output += f"    {col.split(' ')[0]} TEXT DEFAULT 'pending',\n"
+                if isinstance(col, dict):
+                    col_name = col.get("name", "field")
+                    col_text = f"{col.get('name', '')} {col.get('type', '')}".lower()
                 else:
-                    # Default fallback
-                    sql_output += f"    {col.split(' ')[0]} TEXT,\n"
+                    col_name = str(col).split(' ')[0]
+                    col_text = str(col).lower()
+                if "name" in col_text or "title" in col_text:
+                    sql_output += f"    {col_name} TEXT,\n"
+                elif "id" in col_text and "uuid" in col_text and "primary" not in col_text:
+                    sql_output += f"    {col_name} UUID,\n"
+                elif "status" in col_text:
+                    sql_output += f"    {col_name} TEXT DEFAULT 'pending',\n"
+                else:
+                    sql_output += f"    {col_name} TEXT,\n"
             
             # Trim trailing comma and newline
             sql_output = sql_output.rstrip(",\n") + "\n);\n\n"

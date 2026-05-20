@@ -18,14 +18,11 @@ class RequirementParser:
         if not config:
             from main import system_config as config
             
-        model_type = llm_router.get_model_type_for_phase(self.phase)
         engine = config.get("active_llm_engine", "Ollama (Local/Remote)")
-        model = config.get("active_model", "llama3")
-        
-        # Resolve specialized model if it's a dynamic routing scenario
-        if config.get("multi_llm_orchestration"):
-            model = llm_router.resolve_actual_model(model_type, engine)
-        
+        # Route the analysis phase to a gateway-resolvable model (best first).
+        models = llm_router.resolve_gateway_models(self.phase, "AGENT_LOGIC", config)
+        model = models[0]
+
         provider = provider_factory.get_provider(engine, config)
         
         print(f"🧠 Routing to {engine} ({model}) for requirement parsing...")
