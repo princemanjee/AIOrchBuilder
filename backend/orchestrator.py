@@ -172,19 +172,32 @@ class TaskOrchestrator:
                 print(f"📁 Generated UI code for {task.agent_name}")
 
             if task.agent_name == "AGENT_LOGIC" and self.current_blueprint:
+                models = llm_router.resolve_gateway_models("06_REFINEMENT", "AGENT_LOGIC", config)
                 logic_artifacts = {}
                 for table in self.current_blueprint.data_layer.tables:
                     name = table["name"]
-                    # Generate BOTH strategies as requested
                     logic_artifacts[f"frontend/src/hooks/use{name.capitalize().rstrip('s')}.js"] = agent_logic.generate_frontend_logic(name)
-                    logic_artifacts[f"backend/services/{name}_service.py"] = agent_logic.backend_logic_simulation(name) if hasattr(agent_logic, 'backend_logic_simulation') else agent_logic.generate_backend_logic(name)
-                
+                    try:
+                        service_code = await agent_logic.generate_backend_logic_llm(
+                            name,
+                            self.current_blueprint.data_layer,
+                            self.current_blueprint.api_layer,
+                            self.current_blueprint.project_name,
+                            self.current_blueprint.description,
+                            provider,
+                            models,
+                        )
+                    except Exception as e:
+                        print(f"⚠️ LLM service generation failed for {name} ({e}); deterministic fallback.")
+                        service_code = agent_logic.generate_backend_logic(name)
+                    logic_artifacts[f"backend/services/{name}_service.py"] = service_code
+
                 # Add Success Artifacts (for the final logic phase/integration)
                 logic_artifacts["README.md"] = doc_engine.generate_readme(self.current_blueprint.project_name, self.current_blueprint.description)
                 logic_artifacts["DEPLOY.md"] = doc_engine.generate_deploy_guide()
                 logic_artifacts["docker-compose.yml"] = doc_engine.generate_docker_compose(self.current_blueprint.project_name)
                 logic_artifacts["install.sh"] = doc_engine.generate_install_script()
-                
+
                 task.artifacts = logic_artifacts
                 task.output_artifact = logic_artifacts["README.md"]
                 print(f"📁 Generated Logic & Success Artifacts for {task.agent_name}")

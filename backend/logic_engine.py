@@ -94,6 +94,33 @@ export const use{name} = () => {{
 }};
 """
 
+    async def generate_backend_logic_llm(self, table_name: str, data_layer, api_layer, project_name: str, description: str, provider, models) -> str:
+        """LLM-driven backend service-layer logic for one table. Falls back to the
+        deterministic generate_backend_logic at the call site on failure."""
+        from agent_specs import get_spec
+        from llm_client import agent_generate
+
+        spec = get_spec("AGENT_LOGIC")
+        context = {
+            "project_name": project_name,
+            "description": description,
+            "table_name": table_name,
+            "data_layer": data_layer.dict() if hasattr(data_layer, "dict") else data_layer,
+            "api_layer": api_layer.dict() if hasattr(api_layer, "dict") else api_layer,
+        }
+        instruction = (
+            f"Generate the backend service-layer business logic for the '{table_name}' "
+            "entity (real implementations, not print() placeholders). Honor the HARD "
+            "RULES in your system prompt."
+        )
+        return await agent_generate(
+            provider,
+            models=models,
+            system_prompt=spec["system_prompt"],
+            context=context,
+            instruction=instruction,
+        )
+
     def generate_backend_logic(self, table_name: str) -> str:
         """Generates a Service Layer for business logic."""
         name = table_name.capitalize().rstrip('s')
