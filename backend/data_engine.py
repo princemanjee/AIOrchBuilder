@@ -65,4 +65,27 @@ class DataEngine:
             sql_output += f"-- INSERT INTO public.{name} (...) VALUES (...);\n"
         return sql_output
 
+    async def generate_schema_llm(self, data_layer, project_name: str, provider, models) -> str:
+        """LLM-driven schema generation. Injects the blueprint data_layer and the
+        AGENT_DATA contract; returns raw SQL. Caller supplies provider + model chain."""
+        from agent_specs import get_spec
+        from llm_client import agent_generate
+
+        spec = get_spec("AGENT_DATA")
+        context = {
+            "project_name": project_name,
+            "data_layer": data_layer.dict() if hasattr(data_layer, "dict") else data_layer,
+        }
+        instruction = (
+            "Generate the complete PostgreSQL/Supabase schema (CREATE TABLE + RLS "
+            "policies) for every table above. Honor the HARD RULES in your system prompt."
+        )
+        return await agent_generate(
+            provider,
+            models=models,
+            system_prompt=spec["system_prompt"],
+            context=context,
+            instruction=instruction,
+        )
+
 agent_data = DataEngine()
