@@ -154,19 +154,30 @@ class TaskOrchestrator:
                 task.output_artifact = task.artifacts["backend/main.py"]
 
             if task.agent_name == "AGENT_UI" and self.current_blueprint:
+                models = llm_router.resolve_gateway_models("04_BUILD", "AGENT_UI", config)
                 ui_artifacts = {
                     "frontend/package.json": agent_ui.generate_package_json(self.current_blueprint.project_name),
                     "frontend/Dockerfile": agent_ui.generate_dockerfile(),
                     "frontend/next.config.js": agent_ui.generate_next_config(),
-                    "frontend/src/app/layout.jsx": agent_ui.generate_layout(self.current_blueprint.ui_layer.style_guide, self.current_blueprint.ui_layer.pages)
+                    "frontend/src/app/layout.jsx": agent_ui.generate_layout(self.current_blueprint.ui_layer.style_guide, self.current_blueprint.ui_layer.pages),
                 }
-                # Generate Components
+                # Generate Components (LLM-driven with per-component deterministic fallback)
                 for comp in self.current_blueprint.ui_layer.components:
-                    ui_artifacts[f"frontend/src/components/{comp}.jsx"] = agent_ui.generate_component(comp, self.current_blueprint.ui_layer.style_guide)
-                # Generate Pages
+                    try:
+                        comp_code = await agent_ui.generate_component_llm(
+                            comp,
+                            self.current_blueprint.ui_layer,
+                            self.current_blueprint.project_name,
+                            provider,
+                            models,
+                        )
+                    except Exception as e:
+                        print(f"⚠️ LLM component generation failed for {comp} ({e}); deterministic fallback.")
+                        comp_code = agent_ui.generate_component(comp, self.current_blueprint.ui_layer.style_guide)
+                    ui_artifacts[f"frontend/src/components/{comp}.jsx"] = comp_code
+                # Generate Pages (deterministic)
                 for page in self.current_blueprint.ui_layer.pages:
                     ui_artifacts[f"frontend/src/app/{page.lower()}/page.jsx"] = agent_ui.generate_page(page, self.current_blueprint.ui_layer.components, self.current_blueprint.ui_layer.style_guide)
-                
                 task.artifacts = ui_artifacts
                 task.output_artifact = list(ui_artifacts.values())[0] if ui_artifacts else ""
                 print(f"📁 Generated UI code for {task.agent_name}")

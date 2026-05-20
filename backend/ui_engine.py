@@ -232,6 +232,31 @@ export default function RootLayout({{ children }}) {{
 }}
 """
 
+    async def generate_component_llm(self, component_name: str, ui_layer, project_name: str, provider, models) -> str:
+        """LLM-driven React component using the blueprint's style guide. Falls back
+        to the deterministic generate_component at the call site on failure."""
+        from agent_specs import get_spec
+        from llm_client import agent_generate
+
+        spec = get_spec("AGENT_UI")
+        context = {
+            "project_name": project_name,
+            "component_name": component_name,
+            "ui_layer": ui_layer.dict() if hasattr(ui_layer, "dict") else ui_layer,
+        }
+        instruction = (
+            f"Generate the React/Next.js component '{component_name}' using the "
+            "style_guide tokens above. Wire it to data via fetch/hooks (no alert() "
+            "placeholders). Honor the HARD RULES in your system prompt."
+        )
+        return await agent_generate(
+            provider,
+            models=models,
+            system_prompt=spec["system_prompt"],
+            context=context,
+            instruction=instruction,
+        )
+
     def generate_next_config(self) -> str:
         return """/** @type {import('next').NextConfig} */
 const nextConfig = {
