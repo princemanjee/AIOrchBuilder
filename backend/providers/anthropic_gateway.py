@@ -59,8 +59,11 @@ class AnthropicGatewayProvider(LLMProvider):
             response.raise_for_status()
             data = response.json()
 
-        return "".join(
+        text = "".join(
             block.get("text", "")
             for block in data.get("content", [])
             if block.get("type") == "text"
         )
+        if not text:
+            raise ValueError(f"Gateway returned no text content: {data}")
+        return text

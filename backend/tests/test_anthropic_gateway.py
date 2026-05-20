@@ -1,3 +1,4 @@
+import json
 import httpx
 import respx
 import pytest
@@ -26,8 +27,8 @@ async def test_generate_sends_anthropic_shape_and_parses_text():
     assert out == "SELECT 1;"
     assert route.called
     assert route.calls.last.request.headers["x-api-key"] == "secret-key"
-    import json as _json
-    payload = _json.loads(route.calls.last.request.content)
+    assert route.calls.last.request.headers["anthropic-version"] == "2023-06-01"
+    payload = json.loads(route.calls.last.request.content)
     assert payload["model"] == "claude-sonnet-4-5"
     assert payload["system"] == "you are AGENT_DATA"
     assert payload["messages"] == [{"role": "user", "content": "make a schema"}]
@@ -59,4 +60,15 @@ async def test_generate_raises_on_http_error():
     respx.post(f"{GATEWAY}/v1/messages").mock(return_value=httpx.Response(401, json={"error": "bad key"}))
     provider = AnthropicGatewayProvider(GATEWAY, "wrong-key")
     with pytest.raises(httpx.HTTPStatusError):
+        await provider.generate(prompt="p", model="claude-code-cli")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_generate_raises_when_no_text_content():
+    respx.post(f"{GATEWAY}/v1/messages").mock(
+        return_value=httpx.Response(200, json={"content": [{"type": "tool_use", "id": "x", "name": "n", "input": {}}]})
+    )
+    provider = AnthropicGatewayProvider(GATEWAY, "secret-key")
+    with pytest.raises(ValueError):
         await provider.generate(prompt="p", model="claude-code-cli")
