@@ -7,6 +7,7 @@ from logic_engine import agent_logic
 from doc_engine import doc_engine
 from providers.factory import provider_factory
 from llm_router import llm_router, ModelType
+from llm_client import agent_generate  # noqa: F401  (used by engines)
 from auth_engine import agent_auth
 from test_engine import agent_test
 import uuid
@@ -102,26 +103,34 @@ class TaskOrchestrator:
             model = llm_router.resolve_actual_model(model_type, engine)
             
             # Get the actual provider instance (Verify connectivity)
+            provider = provider_factory.get_provider(engine, config)
             try:
-                provider = provider_factory.get_provider(engine, config)
                 print(f"🤖 Agent {task.agent_name} executing on {engine} ({model})...")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"⚠️ Provider selection failed for {engine}: {e}")
             
             task.status = "in_progress"
             await callback(task)
             
-            await asyncio.sleep(random.uniform(1.0, 2.0))
-            
             # --- REAL ARTIFACT GENERATION ---
             if task.agent_name == "AGENT_DATA" and self.current_blueprint:
-                sql = agent_data.generate_schema(self.current_blueprint.data_layer)
+                models = llm_router.resolve_gateway_models("04_BUILD", "AGENT_DATA", config)
+                try:
+                    sql = await agent_data.generate_schema_llm(
+                        self.current_blueprint.data_layer,
+                        self.current_blueprint.project_name,
+                        provider,
+                        models,
+                    )
+                    print(f"📁 LLM-generated SQL for {task.agent_name}")
+                except Exception as e:
+                    print(f"⚠️ LLM schema generation failed ({e}); using deterministic fallback.")
+                    sql = agent_data.generate_schema(self.current_blueprint.data_layer)
                 task.artifacts = {
                     "supabase/migrations/01_init.sql": sql,
-                    "supabase/seed.sql": agent_data.generate_seed_data(self.current_blueprint.data_layer)
+                    "supabase/seed.sql": agent_data.generate_seed_data(self.current_blueprint.data_layer),
                 }
-                task.output_artifact = sql # Backward compatibility
-                print(f"📁 Generated SQL for {task.agent_name}")
+                task.output_artifact = sql
             
             if task.agent_name == "AGENT_API" and self.current_blueprint:
                 task.artifacts = {
