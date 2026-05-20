@@ -32,6 +32,25 @@ class LLMRouter:
             
         return model_type
 
+    # ModelType -> ordered list of ClaudeMCP model names (best first, free last).
+    GATEWAY_MODELS = {
+        ModelType.SMART: ["claude-opus-4-7", "claude-sonnet-4-5", "ollama:local/llama3"],
+        ModelType.BALANCED: ["claude-sonnet-4-5", "gemini-1.5-flash", "ollama:local/llama3"],
+        ModelType.FAST: ["gemini-1.5-flash", "ollama:local/phi3"],
+        ModelType.CODE: ["claude-sonnet-4-5", "ollama:local/codellama"],
+    }
+
+    def resolve_gateway_models(self, phase: str, agent_name: str, config: dict) -> list:
+        """Return an ordered list of ClaudeMCP model names: the agent override (if
+        any) first, then the phase-appropriate chain. The gateway resolves each
+        name to a backend; the caller tries them in order until one succeeds."""
+        model_type = self.get_model_type_for_phase(phase)
+        chain = list(self.GATEWAY_MODELS.get(model_type, self.GATEWAY_MODELS[ModelType.BALANCED]))
+        override = (config or {}).get("gateway_model_overrides", {}).get(agent_name)
+        if override:
+            chain = [override] + [m for m in chain if m != override]
+        return chain
+
     def resolve_actual_model(self, model_type: ModelType, engine_name: str, config_models: Optional[list] = None) -> str:
         """
         Resolves a generic ModelType to a specific model name supported by the given engine.
