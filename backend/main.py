@@ -119,6 +119,9 @@ DEFAULT_CONFIG = {
     "unlimited_admin_tokens": True,
     "active_llm_engine": "Ollama (Local/Remote)",
     "active_model": "llama3",
+    "gateway_url": "http://localhost:3210",
+    "gateway_api_key": "aiorch-local-dev-key-2026",
+    "gateway_default_max_tokens": 4096,
     "ollama_url": "http://localhost:11434",
     "lmstudio_url": "http://localhost:1234",
     "gpt4all_url": "http://localhost:4891",
@@ -160,6 +163,9 @@ class AdminConfigRequest(BaseModel):
     unlimited_admin_tokens: Optional[bool] = None
     active_llm_engine: Optional[str] = None
     active_model: Optional[str] = None
+    gateway_url: Optional[str] = None
+    gateway_api_key: Optional[str] = None
+    gateway_default_max_tokens: Optional[int] = None
     ollama_url: Optional[str] = None
     lmstudio_url: Optional[str] = None
     gpt4all_url: Optional[str] = None
